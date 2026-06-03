@@ -22,7 +22,7 @@ test.describe(taggedDescribe('Login tests', TestTag.UI), {
     { tag: [TestTag.SMOKE, TestTag.SANITY, TestTag.CRITICAL, TestTag.UI] },
     async ({ loginPage }) => {
       await openLoginPage(loginPage);
-      await expect(
+      expect(
         await loginPage.isLoginFormVisible(),
         AssertionMessages.LOGIN_FORM_VISIBLE
       ).toBe(true);
@@ -72,7 +72,7 @@ async function assertLoginOutcome(
 
     case 'error':
       await expect(loginPage.page).toHaveURL(RoutePatterns.LOGIN);
-      await expect(
+      expect(
         await loginPage.getLoginErrorMessage(),
         AssertionMessages.LOGIN_ERROR_SHOWN
       ).toContain(user.expectedError ?? UiMessages.LOGIN_INVALID_CREDENTIALS);
@@ -80,7 +80,7 @@ async function assertLoginOutcome(
 
     case 'validation':
       await expect(loginPage.page).toHaveURL(RoutePatterns.LOGIN);
-      await expect(await loginPage.getLoginErrorMessage()).toContain(
+      expect(await loginPage.getLoginErrorMessage()).toContain(
         user.expectedError ?? UiMessages.LOGIN_REQUIRED
       );
       break;

@@ -28,12 +28,17 @@ export function withTestHooks<T extends typeof base>(test: T) {
         await use();
 
         const status = testInfo.status ?? 'unknown';
-        const logMethod = status === 'failed' || status === 'timedOut' ? Logger.error : Logger.info;
-        logMethod('Test finished', {
+        const logMeta = {
           title: testInfo.title,
           status,
           durationMs: testInfo.duration,
-        });
+        };
+
+        if (status === 'failed' || status === 'timedOut') {
+          Logger.error('Test finished', logMeta);
+        } else {
+          Logger.info('Test finished', logMeta);
+        }
       },
       { auto: true },
     ],

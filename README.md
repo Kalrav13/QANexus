@@ -11,27 +11,29 @@
 > Friends don't let friends run regression suites manually.  
 > If your test suite takes longer than a Marvel movie, we need to talk.
 
-**QANexus** is a Playwright + TypeScript framework aimed at the [OrangeHRM open-source demo](https://opensource-demo.orangehrmlive.com/). It’s built the way teams actually ship automation: login once, tag everything, yell at CI when it breaks, and keep the receipts in three report formats.
+**QANexus** is a Playwright + TypeScript framework designed for the [OrangeHRM open-source demo](https://opensource-demo.orangehrmlive.com/). It is built the way modern engineering teams actually scale test automation: login once, validate environments, leverage API utilities, run tests in parallel, tag appropriately, and keep the receipts in multiple report formats.
 
-This is not a “hello world” repo with a `tests/example.spec.ts` and dreams. It has auth storage, data-driven login, API specs, a custom reporter, and two CI pipelines so PRs don’t wait on WebKit while you’re still arguing about variable names.
+This is not a template with a default search test. It is a fully decoupled, type-safe automated framework with project-level authentication state caching, robust API mocks/clients, data-driven runners, a custom reporter, and dual-track CI pipelines.
 
 ---
 
 ## Table of Contents
 
 - [Quick Start](#quick-start)
-- [What’s in the Box](#whats-in-the-box)
+- [Framework Features](#framework-features)
 - [Architecture](#architecture)
 - [Folder Structure](#folder-structure)
-- [Configuration (Single Source of Truth)](#configuration-single-source-of-truth)
+- [Environment Management](#environment-management)
 - [Authentication State Management](#authentication-state-management)
+- [Page Object Model (POM)](#page-object-model-pom)
+- [API Layer](#api-layer)
 - [Data-Driven Testing](#data-driven-testing)
-- [API Tests](#api-tests)
-- [Logging](#logging)
+- [Logger](#logger)
 - [Test Tags](#test-tags)
 - [Reporting (HTML, JUnit, Allure, QANexus)](#reporting-html-junit-allure-qanexus)
-- [CI Strategy](#ci-strategy)
+- [CI/CD Pipelines](#cicd-pipelines)
 - [Execution Commands](#execution-commands)
+- [Screenshots](#screenshots)
 - [Known Reality Check](#known-reality-check)
 - [License](#license)
 
@@ -40,29 +42,36 @@ This is not a “hello world” repo with a `tests/example.spec.ts` and dreams. 
 ## Quick Start
 
 ```bash
-git clone https://github.com/your-org/QANexus.git
+# Clone the repository
+git clone https://github.com/Kalrav13/QANexus.git
 cd QANexus
-cp .env.dev.example .env.dev
+
+# Setup environment properties
+cp .env.qa.example .env.qa
+
+# Install dependencies and Playwright browsers
 npm install
-npx playwright install chromium   # enough for local smoke runs
+npx playwright install chromium
+
+# Run the smoke tests (combines UI, API, and Config checks)
 npx playwright test --grep @smoke --project=setup --project=smoke --project=chromium --project=chromium-login --project=api
 ```
 
-If that passes, you’ve automated more than most “we’ll add tests in the next sprint” tickets. Celebrate responsibly.
+If that passes, you’ve automated more than most "we'll write tests in the next sprint" tickets. Celebrate responsibly.
 
 ---
 
-## What’s in the Box
+## Framework Features
 
-| Area | What you get |
-|------|----------------|
-| **UI** | Page objects, custom fixtures, `storageState` auth |
-| **API** | `ApiClient`, `AuthApi`, `UserApi`, `apiHelper`, `tests/api/*.api.spec.ts` |
-| **Data** | `loginData.json` + `dataProvider.ts` (CSV hook ready) |
-| **Config** | `envManager` → `appConfig` drives Playwright timeouts, retries, workers, headless |
-| **Observability** | `Logger` → console + `logs/framework.log` |
-| **Reports** | HTML, JUnit XML, Allure, `QANexusReporter` summary |
-| **CI** | PR = Chromium + `@smoke` · Nightly = full suite + all browsers |
+| Feature | Implementation | Purpose |
+|------|----------------|---------|
+| **UI Automation** | TypeScript Page Objects, custom fixtures, cached `storageState` session | Fast UI tests that skip the login screen |
+| **API testing** | `ApiClient` request wrapper, typed domains (`UserApi`, `AuthApi`) | Isolation of REST validation from browser flows |
+| **Environment Control**| Class-based `EnvManager` validating strict schema options | Single source of truth (SSOT) config mapping |
+| **Logging** | Context-safe Singleton console + file logger (`logs/framework.log`) | High observability on test lifecycle steps |
+| **Data-Driven Runs** | `dataProvider` interface resolving JSON scenarios | Scaling tests via schema files without code edits |
+| **Multi-Reporting** | HTML, JUnit XML, Allure, plus custom console summaries | Automated test reporting for devs and managers |
+| **CI/CD** | GitHub Actions (PR & Nightly workflows) | Fail-fast validation gates on every commit |
 
 ---
 
@@ -113,7 +122,7 @@ flowchart TB
     UI --> QN
 ```
 
-**In one sentence:** env loads once → setup logs in and saves cookies → authenticated UI tests skip the login screen → API tests hit the same config → four reporters argue about who gets to tell you it failed.
+**In short:** Configuration loads once → setup logs in and writes storage state → UI specs load state and jump straight to the dashboard → API tests execute endpoint validation in parallel → reporters package up logs and screenshots.
 
 ---
 
@@ -122,349 +131,231 @@ flowchart TB
 ```
 QANexus/
 ├── .github/workflows/
-│   ├── playwright-pr.yml       # PR: @smoke, Chromium only
-│   └── playwright-nightly.yml  # 02:00 UTC: full suite, all browsers
-├── playwright/.auth/           # user.json (gitignored)
-├── logs/framework.log          # gitignored
+│   ├── playwright-pr.yml       # PR checks: @smoke, Chromium only
+│   └── playwright-nightly.yml  # Scheduled: full suite on all browsers
+├── playwright/
+│   └── .auth/                  # user.json (cached storage state)
+├── logs/
+│   └── framework.log           # plain text run execution logs
 ├── reports/                    # html-report, junit.xml, test-results
 ├── src/
 │   ├── api/                    # ApiClient, AuthApi, UserApi
-│   ├── config/                 # envManager (SSOT)
+│   ├── config/                 # envManager (Environment config loader)
 │   ├── constants/              # routes, messages, testTags
-│   ├── data/                   # loginData.json, users.json
-│   ├── fixtures/               # loginPage, authenticatedDashboard, …
+│   ├── data/                   # JSON schemas for data-driven testing
+│   ├── fixtures/               # loginPage, authenticatedDashboard, etc.
 │   ├── helpers/                # authHelper, apiHelper, dataProvider
-│   ├── hooks/                  # testHooks (auto lifecycle logs)
-│   ├── pages/
-│   ├── reporters/              # QANexusReporter.ts
-│   ├── types/
+│   ├── hooks/                  # testHooks (context-safe lifecycle logging)
+│   ├── pages/                  # POM classes (BasePage, LoginPage, DashboardPage)
+│   ├── reporters/              # QANexusReporter.ts (console summary)
+│   ├── types/                  # API, UI, and Environment typings
 │   └── utils/                  # logger, fileUtils, dateUtils
 └── tests/
-    ├── setup/auth.setup.ts
-    ├── smoke/config.spec.ts
-    ├── ui/login.spec.ts, dashboard.spec.ts
-    └── api/auth.api.spec.ts, user.api.spec.ts, health.api.spec.ts
+    ├── setup/auth.setup.ts     # UI session state generator
+    ├── smoke/config.spec.ts    # framework bootstrapping check
+    ├── ui/                     # UI verification spec files
+    └── api/                    # API integration spec files
 ```
 
 ---
 
-## Configuration (Single Source of Truth)
+## Environment Management
 
-`playwright.config.ts` does **not** make up its own timeouts anymore. It reads **`appConfig`** from `envManager`, which loads `.env.{TEST_ENV}`:
+Rather than spreading timeouts and hardcoded URLs across the codebase, configuration is handled as a single source of truth (SSOT) via `src/config/envManager.ts`.
 
-| `.env` key | Drives |
-|------------|--------|
-| `TEST_TIMEOUT_MS` | Playwright test timeout |
-| `EXPECT_TIMEOUT_MS` | `expect()` timeout |
-| `RETRIES` | Retries (local vs QA file) |
-| `WORKERS` | Parallelism (`4` or `50%`) |
-| `HEADLESS` | Browser headless flag |
-| `BASE_URL` / `API_BASE_URL` | UI and API targets |
-| `USERNAME` / `PASSWORD` | Credentials (never hard-coded in specs for valid user) |
+* The `EnvManager` class reads `.env.${TEST_ENV}` depending on the active context.
+* It parses variables into strict TypeScript types (e.g. timeout values as numbers, headless flags as booleans) and performs strict validation.
+* Missing configurations or incorrect types throw explicit errors immediately upon initialization, preventing tests from running in a half-configured state.
 
-Copy `.env.dev.example` → `.env.dev` locally. CI copies `.env.qa.example` → `.env.qa`.
-
-Change a value in the env file, re-run tests. No config archaeology required.
+Example variables used to drive tests:
+* `TEST_TIMEOUT_MS` / `EXPECT_TIMEOUT_MS`: Time limits for tests and assertion checkpoints.
+* `RETRIES` / `WORKERS`: Configure test worker counts and execution retries.
+* `BASE_URL` / `API_BASE_URL`: Destination URLs for UI and REST testing.
 
 ---
 
 ## Authentication State Management
 
-Logging in before every test is like explaining Jira tickets to someone who wasn’t in the meeting. You can do it. You shouldn’t have to.
+Logging in before every UI test is like explaining a Jira ticket to someone who was in the refinement meeting: you can do it, but you really shouldn't have to.
 
-### How it works
+QANexus solves this using project-level caching:
+1. **The `setup` project** runs `tests/setup/auth.setup.ts`. It launches the browser, triggers UI-based login, and captures the cookies and sessionStorage.
+2. The authenticated state is written directly to `playwright/.auth/user.json`.
+3. Standard test projects (`chromium`, `firefox`, `webkit`) load this file as their `storageState`.
+4. The `authenticatedDashboard` fixture routes to the landing screen with cookies pre-loaded, saving seconds on every single test run.
+5. The `chromium-login` project remains uncached to run negative credential validations.
 
-1. **`setup` project** runs `tests/setup/auth.setup.ts` (tagged `@smoke` `@critical` so PR pipelines include it).
-2. `loginViaUi()` signs in with credentials from `.env`.
-3. Session is written to **`playwright/.auth/user.json`**.
-4. **`chromium` / `firefox` / `webkit`** depend on `setup` and load `storageState`.
-5. **`chromium-login`** runs login specs **without** saved cookies — negative tests stay honest.
-6. **`authenticatedDashboard`** fixture opens the dashboard directly. No login déjà vu.
+---
 
-```bash
-npx playwright test --project=setup
-npx playwright test tests/ui/dashboard.spec.ts --project=chromium
-```
+## Page Object Model (POM)
 
-**PR pipeline** only installs Chromium. **Nightly** runs setup once per browser family that needs it. Same pattern, different scale.
+UI interaction elements are grouped under `src/pages` to decouple selectors from spec assertions:
+* **`BasePage.ts`**: Implements custom action helpers (`clickElement`, `fillText`, `getText`, `isVisible`) and handles screenshot generation.
+* **`LoginPage.ts`**: Exposes form field locators (`input[name="username"]`) and contains execution routines for credentials.
+* **`DashboardPage.ts`**: Declares panel locators and elements to confirm user session boundaries.
+
+---
+
+## API Layer
+
+API validation operates independently of the browser lifecycle:
+* **`ApiClient`**: A wrapper for Playwright's `APIRequestContext` that intercepts request lifecycles, parses JSON responses, handles HTTP headers, and throws clean `ApiError` instances on non-2xx statuses.
+* **Domain Modules**: Subclasses `AuthApi` and `UserApi` encapsulate URL route endpoints and payload formats.
+* **Persona Mocking**: The `apiHelper` resolves user data personas (like `admin` or `essUser` configurations) to validate API permissions and query data limits.
 
 ---
 
 ## Data-Driven Testing
 
-Login scenarios live in **`src/data/loginData.json`** as an array:
+Scenarios are separated from test files and stored under `src/data/loginData.json`. This decouples scenario logic from execution syntax.
 
-| `id` | What it proves |
-|------|----------------|
-| `validUser` | Happy path — username/password merged from `.env` at runtime |
-| `invalidUser` | Bad creds → stays on login + error message |
-| `emptyCredentials` | Validation → required field messaging |
-
-**`src/helpers/dataProvider.ts`** loads JSON today. Flip `LOGIN_DATA_FORMAT` to `'csv'` when QA inevitably sends a spreadsheet.
-
-`tests/ui/login.spec.ts` loops cases instead of copy-pasting three tests that only differ by password:
-
-```typescript
-const loginData = getLoginTestCases();
-
-for (const user of loginData) {
-  test(`[${user.id}] ${user.description}`, { tag: tagsForLoginCase(user) }, async ({ loginPage }) => {
-    await openLoginPage(loginPage);
-    await loginPage.login(user.username, user.password);
-    await assertLoginOutcome(loginPage, user);
-  });
-}
-```
-
-New scenario? Edit JSON. The spec file stays closed. Future you owes present you a coffee.
+* **`dataProvider.ts`**: Loads, resolves, and maps data records to typed test cases.
+* **Credential Injection**: Valid credentials for sandbox environments are dynamically fetched from the environment manager at runtime to keep secrets out of data files.
+* **Extendable**: The helper parses JSON files and includes code hooks to import CSV structures seamlessly.
 
 ---
 
-## API Tests
+## Logger
 
-The API layer isn’t decoration — there are real specs under **`tests/api/`**:
-
-| Spec | Covers |
-|------|--------|
-| `health.api.spec.ts` | Web `BASE_URL` up; API base not returning 5xx |
-| `auth.api.spec.ts` | Valid login, invalid login (`ApiError`), session validate |
-| `user.api.spec.ts` | `getUsers()`, `getUserById()` after `loginViaApi` |
-
-They use Playwright’s **`request`** fixture via the dedicated **`api`** project (`baseURL` = `API_BASE_URL`), plus your existing stack:
-
-- `AuthApi` / `UserApi` / `ApiClient`
-- `apiHelper.createAuthApi()`, `loginViaApi(request)`, `createUserApi()`
-- `@api` tags and `Logger` on the way in and out
-
-```bash
-npx playwright test --project=api
-npm run test:api -- --project=api
-npx playwright test --grep @api
-```
-
-**Honest note:** OrangeHRM’s public demo API sometimes returns 404 or omits tokens. Tests `skip` when there’s no token instead of failing with a mystery. That’s the framework telling the truth about the environment, not flaking into gaslighting.
-
----
-
-## Logging
-
-**`src/utils/logger.ts`** — singleton `Logger` with `debug` | `info` | `warn` | `error`.
-
-```
-[2026-06-03 14:03:59] [INFO] User logged in via UI {"username":"Admin"}
-```
-
-- **Console:** colored when your terminal supports it (unlike production at 3 a.m.).
-- **File:** `logs/framework.log` — plain text, parallel-safe enough for a portfolio, audit-friendly for real teams.
-
-Set `LOG_LEVEL=debug` when you need to know which locator waited 30 seconds and why.
-
-Wired into: `BasePage`, fixtures, `ApiClient`, `authHelper`, `apiHelper`, `auth.setup.ts`, and `testHooks` (test start/finish — failures log at `error`).
+Logs are handled by a singleton `LoggerService` exposed in `src/utils/logger.ts`. It provides context-safe logging across the framework:
+* **Console Output**: Supports colored logs based on severity levels (`debug`, `info`, `warn`, `error`).
+* **File Output**: Writes logs to `logs/framework.log` to track step executions.
+* **Lifecycle Hooks**: Integrated into `src/hooks/testHooks.ts` to automatically record test start/finish actions and capture context values (like worker index or run duration). It guarantees `this` context preservation when invoked inside test lifecycles.
 
 ---
 
 ## Test Tags
 
-Defined in **`src/constants/testTags.ts`**. Used in metadata **and** titles via `taggedTitle()` / `taggedDescribe()` so HTML reports don’t look like encrypted filenames.
+Test tags are defined as constants inside `src/constants/testTags.ts` to allow easy suite filtering:
+* `@smoke`: Quick checks to verify core project capabilities.
+* `@sanity`: Verifies primary user journeys.
+* `@regression`: Extensive scenarios validating edge cases.
+* `@critical`: Blocks deployment on failure.
+* `@ui` / `@api`: Isolates test categories.
 
-| Tag | Typical use |
-|-----|-------------|
-| `@smoke` | PR gate — “did we break the universe?” |
-| `@sanity` | Core paths still breathe |
-| `@regression` | Negative / edge cases |
-| `@critical` | Release blockers |
-| `@ui` | Browser specs |
-| `@api` | API project specs |
-
+Tags are passed directly to Playwright's native `tag` metadata property to facilitate execution filters:
 ```bash
+# Run only smoke checks
 npx playwright test --grep @smoke
-npx playwright test --grep @regression
-npx playwright test --grep "@smoke" --grep "@ui"
-npx playwright test --grep-invert @regression
-```
 
-CI uses these tags for real. This isn’t documentation fiction.
+# Run UI tests, excluding regression edge-cases
+npx playwright test --grep @ui --grep-invert @regression
+```
 
 ---
 
 ## Reporting (HTML, JUnit, Allure, QANexus)
 
-`playwright.config.ts` registers **four** reporters. Yes, four. We like evidence.
-
-| Reporter | Output | Who cares |
-|----------|--------|-----------|
-| **list** | Terminal stream | You, during `npm test` |
-| **QANexusReporter** | Console summary | Humans who want closure |
-| **html** | `reports/html-report` | Debugging failures with traces/screenshots |
-| **allure-playwright** | `allure-results` → generate to `reports/allure-report` | Managers who love charts |
-| **junit** | `reports/junit.xml` | CI platforms |
-
-### QANexusReporter
-
-```
-=================================
-QANexus Execution Summary
-=================================
-
-Passed: 8
-Failed: 1
-Skipped: 2
-Pass rate: 72.7%
-Duration: 4m 12s
-
-=================================
-```
-
-Counts final outcomes only (retries aren’t double-counted). Pass rate included because “it mostly worked” should be a number, not a vibe.
-
-### JUnit XML
-
-Enterprise CI speaks JUnit. Jenkins, GitLab, and Azure DevOps ingest `reports/junit.xml` for pass/fail gates and trend lines — without custom parsers held together with hope.
-
-CI uploads JUnit as an artifact on both PR and nightly workflows.
-
-### Allure
-
-After the run:
-
-```bash
-npx allure-commandline generate allure-results --clean -o reports/allure-report
-```
-
-GitHub Actions does this automatically (`if: always()` — because failures are exactly when you need the report).
-
-Open locally when you want history, categories, and the illusion of control.
-
-### HTML
-
-```bash
-npm run test:report
-```
-
-Opens `reports/html-report`. Click failed tests. Regret clicking. Fix test. Classic loop.
+The framework generates four reports to satisfy different engineering audiences:
+1. **HTML Reporter**: Ideal for local debugging. Provides visual traces, screenshots, and step-by-step videos on failures.
+2. **JUnit XML Reporter**: Outputs `reports/junit.xml` to allow standard CI runners (like GitLab or Jenkins) to parse test pass/fail results.
+3. **Allure Reporter**: Compiles runs into interactive charts showing test histories, failures, and execution timings.
+4. **QANexus Reporter**: A custom console reporter that summarizes runs (retries are resolved to output single execution stats):
+   ```
+   =================================
+   QANexus Execution Summary
+   =================================
+   
+   Passed: 8
+   Failed: 1
+   Skipped: 2
+   Pass rate: 72.7%
+   Duration: 4m 12s
+   
+   =================================
+   ```
 
 ---
 
-## CI Strategy
+## CI/CD Pipelines
 
-We split pipelines so PRs don’t wait for three browsers to agree the demo app is having a day.
+GitHub Actions workflows are structured into two jobs:
 
-### PR — `playwright-pr.yml`
+### PR Validation Pipeline (`playwright-pr.yml`)
+* **Trigger**: Triggers on pull requests targeting `main` and `develop`.
+* **Scope**: Focuses exclusively on `@smoke` tests running on **Chromium** to keep feedback loops fast.
+* **Features**: Uses run concurrency to cancel stale runner builds on subsequent pushes.
 
-**When:** `pull_request` → `main`, `develop`  
-**What:** `@smoke` only · **Chromium only**  
-**Why:** Fast feedback (~minutes, not a lunch break)
-
-```yaml
-npx playwright install chromium --with-deps
-npx playwright test --grep @smoke \
-  --project=setup --project=smoke --project=chromium \
-  --project=chromium-login --project=api
-```
-
-| Benefit | |
-|---------|--|
-| Blocks bad merges | Core paths + config + API smoke |
-| Cheap | One browser install |
-| Cancels stale runs | New push kills old PR job |
-
-Artifacts: HTML, JUnit, Allure, traces (7-day retention).
-
-### Nightly — `playwright-nightly.yml`
-
-**When:** `0 2 * * *` UTC + manual `workflow_dispatch`  
-**What:** **`npm test`** — all projects, **Chromium + Firefox + WebKit**  
-**Why:** Cross-browser pain belongs on a schedule, not every push
-
-| Benefit | |
-|---------|--|
-| Full coverage | Login regression, dashboard, API depth |
-| Cross-browser | Engine-specific bugs surface here |
-| Doesn’t block PRs | Investigate in the morning with coffee |
-
-Artifacts: 14-day retention. Same report types.
-
-### Strategy at a glance
-
-| | PR | Nightly |
-|--|-----|---------|
-| Trigger | Pull request | Cron / manual |
-| Browsers | Chromium | Chromium, Firefox, WebKit |
-| Filter | `@smoke` | Full suite |
-| Install | `playwright install chromium` | `playwright install --with-deps` |
-| Merge gate | Yes | Signal only |
-
-**Simulate locally:**
-
-```bash
-# PR
-npx playwright test --grep @smoke --project=setup --project=smoke --project=chromium --project=chromium-login --project=api
-
-# Nightly
-npm test
-```
+### Nightly Regression Pipeline (`playwright-nightly.yml`)
+* **Trigger**: Scheduled cron job executing daily at 02:00 UTC.
+* **Scope**: Runs the entire test suite on all supported browser projects (**Chromium, Firefox, and WebKit**).
+* **Features**: Uploads trace files, JUnit records, and Allure outputs.
 
 ---
 
 ## Execution Commands
 
-### Setup
-
+### Local Installation
 ```bash
-cp .env.dev.example .env.dev
 npm install
-npx playwright install          # all browsers
-npx playwright install chromium # PR-like lean install
+npx playwright install
 ```
 
-### Common runs
-
+### Running Tests
 ```bash
-npm test                        # everything (nightly equivalent)
-npm run test:ui                   # tests/ui
-npm run test:api -- --project=api
-npm run typecheck
-npm run test:report               # HTML report
-npm run clean                     # reports + allure-results
-```
+# Execute the entire suite
+npm test
 
-### By tag / project
+# Run UI tests only
+npm run test:ui
 
-```bash
-npx playwright test --grep @smoke
-npx playwright test --grep @critical
-npx playwright test --grep @regression
-npx playwright test --project=chromium-login
-npx playwright test --project=setup
-```
+# Run API tests only
+npm run test:api
 
-### Headed / debug (when you need to watch it fail live)
-
-```bash
+# Launch tests in headed mode or debug inspector
 npm run test:headed
 npm run test:debug
 ```
+
+### Static Checks & Report Generation
+```bash
+# Run ESLint parser
+npm run lint
+
+# Run TypeScript compilation checks
+npm run typecheck
+
+# Open Playwright HTML Report
+npm run test:report
+
+# Clear report directories
+npm run clean
+```
+
+---
+
+## Screenshots
+
+Below are placeholders for the visual execution reports generated by this framework:
+
+### GitHub Actions Pipeline
+*Placeholder for GitHub Actions PR workflow logs and test suite runs.*
+![GitHub Actions Run](https://via.placeholder.com/800x400.png?text=GitHub+Actions+Pipeline+Execution)
+
+### Allure Report Dashboard
+*Placeholder for the interactive Allure charts and historical dashboards.*
+![Allure Dashboard](https://via.placeholder.com/800x400.png?text=Allure+Report+Dashboard)
+
+### Playwright HTML Report
+*Placeholder for the default Playwright HTML Trace Viewer representation.*
+![Playwright HTML Report](https://via.placeholder.com/800x400.png?text=Playwright+HTML+Report+Viewer)
+
+### QANexus Custom Reporter Output
+*Placeholder showing the QANexus custom reporter summary in the terminal.*
+![QANexus Reporter Output](https://via.placeholder.com/800x400.png?text=QANexus+Custom+Reporter+Output)
 
 ---
 
 ## Known Reality Check
 
-The OrangeHRM **public demo** is not your staging environment. It has:
+The target of this framework is a public sandbox app (`opensource-demo.orangehrmlive.com`). This environment does not come with an SLA and frequently suffers from database load issues, nginx timeouts, and rate limits.
 
-- Intermittent **500** responses (we’ve met the nginx error page personally)
-- API paths that may **404** depending on demo version
-- No SLA, no ticket queue, no on-call
-
-QANexus handles that like adults: health checks, skips when tokens are missing, retries from `.env`. A red build might mean “fix the test” or “the demo is having an existential crisis.” Read the logs. `logs/framework.log` doesn’t lie.
+QANexus is designed to handle this reality:
+* Network request checks verify site availability before UI suites spin up.
+* API test specs automatically skip their blocks if the server fails to return tokens, preventing server flakiness from polluting code execution statistics.
 
 ---
 
 ## License
 
-MIT — fork it, show recruiters, extend it. If the demo is down, that’s not your framework’s fault. That’s free infrastructure reminding you why you automate in the first place.
-
----
-
-<p align="center">
-  <strong>QANexus</strong> — automate the boring stuff. Save manual testing for the weird edge cases and the production incidents that build character.
-</p>
+This project is licensed under the MIT License. Feel free to clone, customize, or use it to show recruiters how production automation pipelines are built.

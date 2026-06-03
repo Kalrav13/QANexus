@@ -13,7 +13,7 @@ test.describe(taggedDescribe('Dashboard tests', TestTag.SMOKE, TestTag.UI), {
     ),
     { tag: [TestTag.CRITICAL, TestTag.SANITY, TestTag.SMOKE, TestTag.UI] },
     async ({ authenticatedDashboard }) => {
-      await expect(
+      expect(
         await authenticatedDashboard.isDashboardLoaded(),
         AssertionMessages.DASHBOARD_LOADED
       ).toBe(true);
