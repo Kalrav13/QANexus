@@ -1,3 +1,5 @@
-# Ignore the presentation HTML slide deck from GitHub language statistics
-presentation.html linguist-documentation
+# Completely exclude the presentation HTML slide deck from GitHub language statistics
+presentation.html linguist-vendored
+presentation.html linguist-generated
+presentation.html linguist-detect=false
 docs/**/*.md linguist-documentation
