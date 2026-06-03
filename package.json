@@ -1,0 +1,40 @@
+{
+  "name": "qanexus-playwright-framework",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Enterprise-grade Playwright + TypeScript automation framework for OrangeHRM demo application.",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test tests/ui",
+    "test:api": "playwright test tests/api",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report reports/html-report",
+    "clean": "rimraf reports allure-results",
+    "codegen": "playwright codegen",
+    "format": "prettier \"{src,tests}/**/*.{ts,tsx}\" --write",
+    "lint": "eslint \"{src,tests}/**/*.{ts,tsx}\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.0",
+    "@types/node": "^20.14.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "allure-playwright": "^3.0.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "rimraf": "^5.0.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  }
+}

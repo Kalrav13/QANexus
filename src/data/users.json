@@ -1,0 +1,14 @@
+{
+  "admin": {
+    "userName": "Admin",
+    "role": "Admin",
+    "status": "Enabled",
+    "employeeName": "Admin User"
+  },
+  "essUser": {
+    "userName": "FMLName",
+    "role": "ESS",
+    "status": "Enabled",
+    "employeeName": "Fiona Grace"
+  }
+}

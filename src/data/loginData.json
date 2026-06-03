@@ -1,0 +1,25 @@
+[
+  {
+    "id": "validUser",
+    "username": "Admin",
+    "password": "admin123",
+    "description": "Valid OrangeHRM administrator credentials",
+    "outcome": "success"
+  },
+  {
+    "id": "invalidUser",
+    "username": "invalid_user",
+    "password": "wrong_password",
+    "description": "Invalid username and password combination",
+    "outcome": "error",
+    "expectedError": "Invalid credentials"
+  },
+  {
+    "id": "emptyCredentials",
+    "username": "",
+    "password": "",
+    "description": "Empty username and password fields",
+    "outcome": "validation",
+    "expectedError": "Required"
+  }
+]
