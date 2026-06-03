@@ -1,0 +1,3 @@
+# Ignore the presentation HTML slide deck from GitHub language statistics
+presentation.html linguist-documentation
+docs/**/*.md linguist-documentation
