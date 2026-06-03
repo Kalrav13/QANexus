@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QANexus: Playwright Automation Architecture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #090a0f;
+      --panel-bg: rgba(18, 20, 32, 0.7);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --primary: #6366f1;
+      --primary-gradient: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+      --accent: #2ead33;
+      --accent-gradient: linear-gradient(135deg, #4ade80 0%, #2ead33 100%);
+      --warning: #f59e0b;
+      --shadow-indigo: rgba(99, 102, 241, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+
+    /* Ambient Background Glows */
+    .glow-circle {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(140px);
+      z-index: 0;
+      opacity: 0.4;
+      pointer-events: none;
+    }
+    .glow-1 {
+      top: -10%;
+      left: 10%;
+      width: 400px;
+      height: 400px;
+      background: var(--primary);
+    }
+    .glow-2 {
+      bottom: -10%;
+      right: 10%;
+      width: 450px;
+      height: 450px;
+      background: rgba(99, 102, 241, 0.6);
+    }
+
+    /* Slide Deck Container */
+    .deck-container {
+      width: 90%;
+      max-width: 1100px;
+      height: 80%;
+      max-height: 700px;
+      background-color: var(--panel-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px var(--shadow-indigo);
+      position: relative;
+      overflow: hidden;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Slide Wrapper & Slides */
+    .slides-wrapper {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      padding: 60px 80px;
+      opacity: 0;
+      visibility: hidden;
+      transform: scale(0.97) translateY(10px);
+      transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                  transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                  visibility 0.5s;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .slide.active {
+      opacity: 1;
+      visibility: visible;
+      transform: scale(1) translateY(0);
+    }
+
+    /* Slide Headings & Typography */
+    h1, h2, h3 {
+      font-family: 'Outfit', sans-serif;
+    }
+
+    .slide-header {
+      margin-bottom: 24px;
+    }
+
+    .slide-badge {
+      display: inline-block;
+      padding: 6px 12px;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      color: #818cf8;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 12px;
+    }
+
+    .slide-title {
+      font-size: 2.5rem;
+      font-weight: 800;
+      background: linear-gradient(to right, #ffffff, #d1d5db);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .slide-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      margin-bottom: 30px;
+    }
+
+    /* Slide Layout Grid / Layouts */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 40px;
+      align-items: center;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 24px;
+      border-radius: 16px;
+      transition: border-color 0.3s, transform 0.3s;
+    }
+
+    .card:hover {
+      border-color: rgba(99, 102, 241, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-desc {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .bullet-list {
+      list-style: none;
+    }
+
+    .bullet-list li {
+      font-size: 1.1rem;
+      margin-bottom: 14px;
+      line-height: 1.6;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .bullet-list li::before {
+      content: "✦";
+      color: #818cf8;
+      font-weight: bold;
+    }
+
+    /* Code Blocks & Tech Details */
+    pre {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-color);
+      padding: 20px;
+      border-radius: 12px;
+      font-family: Consolas, Monaco, 'Andale Mono', monospace;
+      font-size: 0.85rem;
+      color: #e5e7eb;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    /* Deck Controls / Navigation Footers */
+    .deck-footer {
+      height: 80px;
+      border-top: 1px solid var(--border-color);
+      padding: 0 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(9, 10, 15, 0.4);
+      border-bottom-left-radius: 24px;
+      border-bottom-right-radius: 24px;
+    }
+
+    .btn-nav {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+      padding: 10px 20px;
+      border-radius: 9999px;
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.3s, border-color 0.3s;
+    }
+
+    .btn-nav:hover:not(:disabled) {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: var(--primary);
+    }
+
+    .btn-nav:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .slide-progress {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .progress-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      transition: background 0.3s, transform 0.3s;
+    }
+
+    .progress-dot.active {
+      background: var(--primary);
+      transform: scale(1.4);
+    }
+
+    /* Title Slide Specifics */
+    .title-slide {
+      text-align: center;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .main-title {
+      font-size: 3.5rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #ffffff 0%, #9ca3af 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 12px;
+      letter-spacing: -1px;
+    }
+
+    .main-subtitle {
+      font-size: 1.3rem;
+      color: var(--primary);
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 30px;
+    }
+
+    .tagline {
+      font-style: italic;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      border-left: 2px solid var(--primary);
+      padding-left: 12px;
+      margin-top: 20px;
+    }
+
+    /* Indicator Overlay / Key Instructions */
+    .keyboard-hint {
+      margin-top: 20px;
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.4);
+      display: flex;
+      gap: 15px;
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Glow -->
+  <div class="glow-circle glow-1"></div>
+  <div class="glow-circle glow-2"></div>
+
+  <!-- Main Presentation Window -->
+  <div class="deck-container">
+    <div class="slides-wrapper">
+
+      <!-- SLIDE 1: Title -->
+      <div class="slide active title-slide">
+        <div class="slide-badge">Architecture Deck</div>
+        <h1 class="main-title">QANexus Framework</h1>
+        <h2 class="main-subtitle">Playwright + TypeScript Architecture</h2>
+        <p class="tagline">"Because clicking buttons manually is a personality trait, not a testing strategy."</p>
+      </div>
+
+      <!-- SLIDE 2: Objectives & Agenda -->
+      <div class="slide">
+        <div class="slide-header">
+          <div class="slide-badge">Overview</div>
+          <h2 class="slide-title">Objectives & Agenda</h2>
+        </div>
+        <div class="slide-content">
+          <div class="grid-2">
+            <ul class="bullet-list">
+              <li><strong>Zero Boilerplate Runs</strong>: Caches auth state contextually to skip login steps.</li>
+              <li><strong>Decoupled Network Layer</strong>: Isolates HTTP APIs from visual browsers.</li>
+              <li><strong>Environment Control</strong>: Prevents invalid configuration deployments.</li>
+              <li><strong>Dual-Track Pipelines</strong>: Fast smoke tests on PRs, nightly cross-browser sweeps.</li>
+            </ul>
+            <div class="card">
+              <div class="card-title">🔍 Context-Ready</div>
+              <p class="card-desc">Designed to evaluate UI flakiness, execute REST validation in parallel, and produce highly visual reports for stakeholders.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 3: Layered Architecture -->
+      <div class="slide">
+        <div class="slide-header">
+          <div class="slide-badge">Core Engine</div>
+          <h2 class="slide-title">Decoupled Layer Architecture</h2>
+        </div>
+        <div class="slide-content">
+          <div class="grid-3">
+            <div class="card">
+              <div class="card-title">⚙️ Configuration</div>
+              <p class="card-desc">`EnvManager` loads `.env.*` schemas and checks keys, casting strings to numbers and booleans prior to launching the suite.</p>
+            </div>
+            <div class="card">
+              <div class="card-title">🎭 POM Pages</div>
+              <p class="card-desc">`BasePage` wraps element interaction routines while specific pages declare selector locators (`LoginPage`, `DashboardPage`).</p>
+            </div>
+            <div class="card">
+              <div class="card-title">🧬 API Client</div>
+              <p class="card-desc">`ApiClient` handles network requests, custom errors, and context parsing independently of browser execution.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 4: Cached Authentication -->
+      <div class="slide">
+        <div class="slide-header">
+          <div class="slide-badge">Authentication</div>
+          <h2 class="slide-title">Session State Orchestration</h2>
+        </div>
+        <div class="slide-content">
+          <div class="grid-2">
+            <ul class="bullet-list">
+              <li><strong>Run-Once Authentication</strong>: `auth.setup.ts` project logs in UI and serializes context.</li>
+              <li><strong>Stored state JSON</strong>: Saved safely to `playwright/.auth/user.json` (gitignored).</li>
+              <li><strong>Pre-Authenticated Projects</strong>: Browser projects seed `storageState` directly.</li>
+              <li><strong>Isolated Login Specs</strong>: Uncached projects remain untouched to validate error scenarios.</li>
+            </ul>
+            <pre>
+// playwright.config.ts
+projects: [
+  {
+    name: 'setup',
+    testMatch: /auth\.setup\.ts/,
+  },
+  {
+    name: 'chromium',
+    dependencies: ['setup'],
+    use: {
+      storageState: AUTH_STORAGE_PATH,
+    },
+  }
+]</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 5: REST API Architecture -->
+      <div class="slide">
+        <div class="slide-header">
+          <div class="slide-badge">API Layer</div>
+          <h2 class="slide-title">REST Endpoint Integration</h2>
+        </div>
+        <div class="slide-content">
+          <div class="grid-2">
+            <ul class="bullet-list">
+              <li><strong>Modular Controllers</strong>: Subclassed endpoint routes (`UserApi`, `AuthApi`) declare REST logic.</li>
+              <li><strong>Isolated API Projects</strong>: Custom project configurations set separate `apiBaseUrl` and request headers.</li>
+              <li><strong>Mock Personas</strong>: JSON mappings store employee profiles (`admin`, `essUser`) to ease assertions.</li>
+            </ul>
+            <pre>
+// src/api/ApiClient.ts
+const response = await this.request.fetch(endpoint, {
+  method,
+  headers: { ...this.defaultHeaders, ...options.headers },
+  ...options
+});
+if (!response.ok()) {
+  throw new ApiError("Failed", response.status(), ...);
+}</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 6: Observability -->
+      <div class="slide">
+        <div class="slide-header">
+          <div class="slide-badge">Observability</div>
+          <h2 class="slide-title">Context-Safe Logging & Hooks</h2>
+        </div>
+        <div class="slide-content">
+          <div class="grid-2">
+            <ul class="bullet-list">
+              <li><strong>Singleton Logger</strong>: Multi-level output (`debug`, `info`, `warn`, `error`) to console and file.</li>
+              <li><strong>Preserved Context</strong>: Hook methods call Logger instances directly to ensure correct `this` binding.</li>
+              <li><strong>Lifecycle Fixtures</strong>: Automatically formats start/end timelines, worker indices, and run durations.</li>
+            </ul>
+            <pre>
+// src/hooks/testHooks.ts
+export function withTestHooks(test) {
+  return test.extend({
+    _lifecycle: [async ({}, use, testInfo) => {
+      Logger.info('Test started', { title: testInfo.title });
+      await use();
+      Logger.info('Test finished', { status: testInfo.status });
+    }, { auto: true }]
+  });
+}</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 7: Reporting Suite -->
+      <div class="slide">
+        <div class="slide-header">
+          <div class="slide-badge">Reporting</div>
+          <h2 class="slide-title">Observed Results, Four Ways</h2>
+        </div>
+        <div class="slide-content">
+          <div class="grid-3">
+            <div class="card">
+              <div class="card-title">📈 Allure</div>
+              <p class="card-desc">Generates interactive dashboards, test classifications, trends, and video recordings on failure.</p>
+            </div>
+            <div class="card">
+              <div class="card-title">🖥️ HTML + Console</div>
+              <p class="card-desc">`QANexusReporter` displays run metrics in the terminal; HTML traces show actions step-by-step.</p>
+            </div>
+            <div class="card">
+              <div class="card-title">📑 JUnit XML</div>
+              <p class="card-desc">Exports standard XML reports to let CI pipelines block changes automatically on failure.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 8: CI/CD Strategy -->
+      <div class="slide">
+        <div class="slide-header">
+          <div class="slide-badge">Pipelines</div>
+          <h2 class="slide-title">CI/CD Run Strategy</h2>
+        </div>
+        <div class="slide-content">
+          <div class="grid-2">
+            <ul class="bullet-list">
+              <li><strong>PR Smoke Checks</strong>: Runs fast `@smoke` suites on Chromium only. Automatically cancels stale builds.</li>
+              <li><strong>Nightly Matrix</strong>: Triggers daily cross-browser runs on Chrome, Firefox, and WebKit.</li>
+              <li><strong>Playwright Caching</strong>: CI scripts cache browser binaries to shave minutes off pipeline duration.</li>
+            </ul>
+            <div class="card">
+              <div class="card-title">⚡ PR Optimization</div>
+              <p class="card-desc">Saves server core hours by skipping secondary browser installations on intermediate branches.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 9: Project Conclusion -->
+      <div class="slide">
+        <div class="slide-header">
+          <div class="slide-badge">Done</div>
+          <h2 class="slide-title">Audit & Readiness Summary</h2>
+        </div>
+        <div class="slide-content">
+          <div class="grid-3">
+            <div class="card">
+              <div class="card-title" style="color:var(--accent);">✅ 100% Validated</div>
+              <p class="card-desc">Typecheck and ESLint runs execute cleanly with zero errors. Teardown logging crashes resolved.</p>
+            </div>
+            <div class="card">
+              <div class="card-title" style="color:var(--accent);">🔐 Untracked Secrets</div>
+              <p class="card-desc">Plaintext configurations removed from Git index, enforcing clean repository safety guidelines.</p>
+            </div>
+            <div class="card">
+              <div class="card-title" style="color:var(--accent);">🎯 Interview Ready</div>
+              <p class="card-desc">Well-structured, documented, and fully optimized for recruiter reviews and live SDET demos.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Navigation Footer -->
+    <div class="deck-footer">
+      <button class="btn-nav" id="btn-prev" disabled>← Previous</button>
+      <div class="slide-progress" id="slide-progress"></div>
+      <button class="btn-nav" id="btn-next">Next →</button>
+    </div>
+  </div>
+
+  <!-- Keyboard hints -->
+  <div class="keyboard-hint">
+    <span>Use Keyboard <strong>Left / Right Arrows</strong> or Spacebar to navigate slides</span>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const slides = document.querySelectorAll('.slide');
+      const btnPrev = document.getElementById('btn-prev');
+      const btnNext = document.getElementById('btn-next');
+      const progressContainer = document.getElementById('slide-progress');
+      let currentSlide = 0;
+
+      // Generate Progress Dots
+      slides.forEach((_, idx) => {
+        const dot = document.createElement('div');
+        dot.classList.add('progress-dot');
+        if (idx === 0) dot.classList.add('active');
+        progressContainer.appendChild(dot);
+      });
+
+      const dots = document.querySelectorAll('.progress-dot');
+
+      function updateSlide(targetIdx) {
+        slides[currentSlide].classList.remove('active');
+        dots[currentSlide].classList.remove('active');
+        
+        currentSlide = targetIdx;
+        
+        slides[currentSlide].classList.add('active');
+        dots[currentSlide].classList.add('active');
+
+        // Navigation state
+        btnPrev.disabled = currentSlide === 0;
+        btnNext.disabled = currentSlide === slides.length - 1;
+      }
+
+      btnPrev.addEventListener('click', () => {
+        if (currentSlide > 0) updateSlide(currentSlide - 1);
+      });
+
+      btnNext.addEventListener('click', () => {
+        if (currentSlide < slides.length - 1) updateSlide(currentSlide + 1);
+      });
+
+      // Keyboard Controls
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === ' ') {
+          if (currentSlide < slides.length - 1) updateSlide(currentSlide + 1);
+        } else if (e.key === 'ArrowLeft') {
+          if (currentSlide > 0) updateSlide(currentSlide - 1);
+        }
+      });
+    });
+  </script>
+</body>
+</html>
