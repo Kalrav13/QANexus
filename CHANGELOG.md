@@ -4,12 +4,19 @@ All notable changes to the QANexus framework will be documented in this file.
 
 ---
 
+## [1.1.1] - 2026-06-05
+### Changed
+- Reviewed Playwright HTML Trace Viewer configurations and artifact retention guidelines for optimized CI runner execution.
+
+---
+
 ## [1.1.0] - 2026-06-04
 ### Added
 - Created `CHANGELOG.md` to track framework updates.
 
 ### Security
 - Untracked `.env.prod` and `.env.stage` files from the Git index and configured `.gitattributes` to exclude `presentation.html` from language statistics.
+- Scrubbed `node_modules` and testing report files from history to optimize repository size.
 
 ---
 
